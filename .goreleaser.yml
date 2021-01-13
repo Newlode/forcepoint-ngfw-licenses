@@ -58,5 +58,5 @@ env_files:
 
 release:
   github:
-    owner: sebbbastien
-    name: forcepoint-licenses
+    owner: Newlode
+    name: forcepoint-ngfw-licenses
