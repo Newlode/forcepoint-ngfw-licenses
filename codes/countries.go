@@ -7,7 +7,7 @@ import (
 
 func init() {
 	CountriesCodes = make([]string, 0)
-	for k, _ := range Countries {
+	for k := range Countries {
 		CountriesCodes = append(CountriesCodes, k)
 	}
 	sort.Strings(CountriesCodes)
