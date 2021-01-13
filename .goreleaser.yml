@@ -1,0 +1,62 @@
+# This is an example goreleaser.yaml file with some sane defaults.
+# Make sure to check the documentation at http://goreleaser.com
+before:
+  hooks:
+    # you may remove this if you don't use vgo
+    - go mod download
+    # you may remove this if you don't need go generate
+    - go generate ./...
+
+project_name: forcepoint-licenses
+
+env:
+  - CGO_ENABLED=0
+
+builds:
+  - id: forcepoint-licenses
+    main: forcepoint-licenses.go
+    binary: forcepoint-licenses
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+    hooks:
+      post:
+        - upx -qq -9 "{{ .Path }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    files:
+      - none*
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+env_files:
+  gitlab_token: ~/.config/goreleaser/github_token
+
+release:
+  github:
+    owner: sebbbastien
+    name: forcepoint-licenses

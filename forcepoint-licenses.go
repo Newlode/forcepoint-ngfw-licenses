@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Newlode/forcepoint-ngfw-licenses/codes"
+	ngfwlicenses "github.com/Newlode/forcepoint-ngfw-licenses/ngfw-licenses"
 	"github.com/logrusorgru/aurora"
 	"github.com/mbndr/logo"
 	"github.com/snwfdhmp/errlog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	codes "gitlab.com/newlodegroup/forcepoint/ngfw-licences.git/codes"
-	ngfwlicences "gitlab.com/newlodegroup/forcepoint/ngfw-licences.git/ngfw-licences"
 )
 
 var (
@@ -20,24 +20,25 @@ var (
 	cfgFile string
 
 	rootCmd = &cobra.Command{
-		Use: "register",
+		Use: "forcepoint-licenses",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			posList = ngfwlicences.CreatePOSFormFiles()
+			posList = ngfwlicenses.CreatePOSFormFiles()
 		},
 	}
 
 	debug             bool
 	verbose           bool
-	concurrentWorkers int
+	concurrentWorkers int    = 8
+	outputDir         string = "jar-files"
 
-	posList ngfwlicences.POSList
+	posList ngfwlicenses.POSList
 )
 
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	logger = logo.NewSimpleLogger(os.Stderr, logo.WARN, aurora.Cyan("MAIN  ").String(), true)
-	ngfwlicences.Logger = logo.NewSimpleLogger(os.Stderr, logo.WARN, aurora.Magenta("NGFWLIC").String(), true)
+	ngfwlicenses.Logger = logo.NewSimpleLogger(os.Stderr, logo.WARN, aurora.Magenta("NGFWLIC").String(), true)
 
 	// ConfigFile
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is config.yml in current directory)")
@@ -47,8 +48,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 
 	// ConcurrentWorkers
-	rootCmd.PersistentFlags().IntVar(&concurrentWorkers, "concurrent-workers", 8, "Number of threads to use")
+	rootCmd.PersistentFlags().IntVar(&concurrentWorkers, "concurrent-workers", concurrentWorkers, "Number of threads to use")
 	viper.BindPFlag("concurrent_workers", rootCmd.PersistentFlags().Lookup("concurrent-workers"))
+
+	// LicensesOutputDir
+	rootCmd.PersistentFlags().StringVar(&outputDir, "output-dir", outputDir, "The directory where to store licenses files")
+	viper.BindPFlag("licenses_output_dir", rootCmd.PersistentFlags().Lookup("output-dir"))
 }
 
 func initConfig() {
@@ -62,12 +67,12 @@ func initConfig() {
 
 	if verbose {
 		logger.SetLevel(logo.INFO)
-		ngfwlicences.Logger.SetLevel(logo.INFO)
+		ngfwlicenses.Logger.SetLevel(logo.INFO)
 	}
 
 	if debug {
 		logger.SetLevel(logo.DEBUG)
-		ngfwlicences.Logger.SetLevel(logo.DEBUG)
+		ngfwlicenses.Logger.SetLevel(logo.DEBUG)
 	}
 }
 
@@ -108,31 +113,43 @@ func runListCountryStates(cmd *cobra.Command, args []string) {
 
 // runVerify just check online the PoS status
 func runVerify(cmd *cobra.Command, args []string) {
-	posList.CheckValidity(concurrentWorkers)
-
-	posOk := posList.GetByNotStatus(ngfwlicences.Invalid)
-	fmt.Printf("Found %d valid PoS:\n", len(posOk))
-	for _, pos := range posOk {
-		fmt.Printf("- %v\n", pos.DetailedString())
-	}
-
-	posKo := posList.GetByStatus(ngfwlicences.Invalid)
-	if len(posKo) > 0 {
-		fmt.Printf("\nFound %d invalid PoS:\n", len(posKo))
-		for _, pos := range posKo {
-			fmt.Printf("- %v\n", pos.DetailedString())
-		}
-	}
-
+	posList.RefreshStatus(concurrentWorkers)
+	posList.Display()
 }
 
 // runRegister
 func runRegister(cmd *cobra.Command, args []string) {
-
+	posList.RefreshStatus(concurrentWorkers)
+	posList.Display()
+	posList.Register(cfg.ConcurrentWorkers, cfg.ContactInfo, cfg.Reseller)
+	posList.Display()
 }
 
-func runGenCountriesMD(cmd *cobra.Command, args []string) {
-	fmt.Println(codes.CountriesToMarkdown())
+// runDownload
+func runDownload(cmd *cobra.Command, args []string) {
+	posList.RefreshStatus(concurrentWorkers)
+	posList.Display()
+	posList.Register(cfg.ConcurrentWorkers, cfg.ContactInfo, cfg.Reseller)
+	posList.Display()
+	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
+}
+
+// runDownloadOnly
+func runDownloadOnly(cmd *cobra.Command, args []string) {
+	_, err := os.Stat(cfg.LicensesOutputDir)
+
+	if os.IsNotExist(err) {
+		err = os.Mkdir(cfg.LicensesOutputDir, os.ModePerm)
+		if errlog.Debug(err) {
+			logger.Fatalf("Unable to create directory %s", cfg.LicensesOutputDir)
+		}
+	}
+	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
+}
+
+// runNotImplemented
+func runNotImplemented(cmd *cobra.Command, args []string) {
+	logger.Fatalf("%s not yet implemented\n", cmd.Use)
 }
 
 //=================================================================
@@ -143,19 +160,13 @@ func readConfig() {
 	viper.SetConfigType("yaml")
 	// viper.AddConfigPath(".")
 
-	viper.SetDefault("concurrent_workers", 2)
-	viper.SetDefault("licences_output_dir", "./out/")
+	//viper.SetDefault("concurrent_workers", 2)
+	//viper.SetDefault("licenses_output_dir", "./out/")
 	viper.SetDefault("contact_info", nil)
 
-	err := viper.ReadInConfig()
-	/*
-		if errlog.Debug(err) {
-			//	logger.Fatalf("Fatal error while opening config file: %s\n", err)
-			return
-		}
-	*/
+	viper.ReadInConfig()
 
-	err = viper.Unmarshal(&cfg)
+	err := viper.Unmarshal(&cfg)
 	if errlog.Debug(err) {
 		logger.Fatalf("Unable to read config file: %s\n", err)
 	}
@@ -163,20 +174,10 @@ func readConfig() {
 
 type config struct {
 	ConcurrentWorkers int    `mapstructure:"concurrent_workers"`
-	LicencesOutputDir string `mapstructure:"licences_output_dir"`
+	LicensesOutputDir string `mapstructure:"licenses_output_dir"`
 
-	ContactInfo *struct {
-		Firstname string `mapstructure:"firstname"`
-		Lastname  string `mapstructure:"lastname"`
-		Email     string `mapstructure:"email"`
-		Phone     string `mapstructure:"phone"`
-		Company   string `mapstructure:"company*"`
-		Address   string `mapstructure:"address"`
-		Zip       string `mapstructure:"zip"`
-		City      string `mapstructure:"city"`
-		Country   string `mapstructure:"country"`
-		State     string `mapstructure:"state"`
-	} `mapstructure:"contact_info"`
+	ContactInfo *ngfwlicenses.ContactInfo `mapstructure:"contact_info"`
+	Reseller    string                    `mapstructure:"resseller"`
 }
 
 //=================================================================
@@ -205,48 +206,56 @@ func main() {
 
 	var cmdVerify = &cobra.Command{
 		Use:   "verify",
-		Short: "Check PoS validity",
-		Long:  `Check the validity of all PoS contained in HTML files.`,
+		Short: "Verify POS status",
 		Args:  cobra.NoArgs,
 		Run:   runVerify,
 	}
 
 	var cmdRegister = &cobra.Command{
 		Use:    "register",
-		Short:  "Register all PoS",
-		Long:   `Register all PoS found in HTML files.`,
+		Short:  "Verify and register all PoS",
 		Args:   cobra.NoArgs,
 		PreRun: runVerify,
 		Run:    runRegister,
 	}
+	cmdRegister.Flags().StringArrayP("from-file", "f", nil, "filename")
 
 	var cmdDownload = &cobra.Command{
-		Use:   "download",
-		Short: "Verify, register and download licence files for all PoS",
-		Long: `echo things multiple times back to the user by providing
-a count and a string.`,
-		Args: cobra.NoArgs,
-		Run:  runVerify,
+		Use:     "download",
+		Short:   "Verify, register and download licenses files for all PoS",
+		Args:    cobra.NoArgs,
+		Run:     runDownload,
+		Aliases: []string{"register-and-download"},
 	}
 
 	var cmdDownloadOnly = &cobra.Command{
 		Use:   "download-only",
-		Short: "Verify and download licence files for already registered PoS",
-		Long: `echo things multiple times back to the user by providing
-a count and a string.`,
-		Args: cobra.NoArgs,
-		Run:  runVerify,
+		Short: "Verify and download licenses files for already registered PoS",
+		Args:  cobra.NoArgs,
+		Run:   runDownloadOnly,
 	}
 
 	var cmdInstall = &cobra.Command{
-		Use:   "install",
-		Short: "Echo anything to the screen more times",
-		Long: `echo things multiple times back to the user by providing
-a count and a string.`,
-		Args: cobra.NoArgs,
-		Run:  runVerify,
+		Use:              "install",
+		Short:            "Verify, register and download licenses on SMC for all PoS",
+		Args:             cobra.NoArgs,
+		Run:              runNotImplemented,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
 	}
 
-	rootCmd.AddCommand(cmdListCountries, cmdListCountryStates, cmdVerify, cmdRegister, cmdDownload, cmdDownloadOnly, cmdInstall)
+	var cmdInstallOnly = &cobra.Command{
+		Use:              "install-only",
+		Short:            "Verify and install licenses on SMC for already registered PoS",
+		Args:             cobra.NoArgs,
+		Run:              runNotImplemented,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+	}
+
+	rootCmd.AddCommand(
+		cmdListCountries, cmdListCountryStates,
+		cmdVerify,
+		cmdRegister,
+		cmdDownload, cmdDownloadOnly,
+		cmdInstall, cmdInstallOnly)
 	rootCmd.Execute()
 }
