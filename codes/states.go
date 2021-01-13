@@ -2097,7 +2097,7 @@ func StatesToMarkdown() string {
 }
 
 func StateToMarkdown(countryCode string) string {
-	res := fmt.Sprintf("\n# %s: %s\n\n", countryCode, Countries[countryCode])
+	res := fmt.Sprintf("\n## %s: %s\n\n", countryCode, Countries[countryCode])
 	res += "Code | State name\n" +
 		":---:|:------------\n"
 
