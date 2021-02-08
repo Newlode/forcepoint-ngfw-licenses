@@ -1,13 +1,11 @@
 package ngfwlicenses
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"mime/multipart"
-	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/logrusorgru/aurora"
 	"github.com/mbndr/logo"
 	"github.com/snwfdhmp/errlog"
@@ -78,7 +77,7 @@ type ContactInfo struct {
 // POS
 
 type POS struct {
-	httpClient   *http.Client
+	httpClient   *resty.Client
 	POS          string
 	Status       LicenseStatus
 	LicenseID    string
@@ -89,9 +88,8 @@ type POS struct {
 }
 
 func NewPOS(pos string) *POS {
-	cookieJar, _ := cookiejar.New(nil)
 	return &POS{
-		httpClient: &http.Client{Timeout: time.Second * 10, Jar: cookieJar},
+		httpClient: resty.New(),
 		POS:        pos,
 		Status:     Unknown,
 	}
@@ -115,17 +113,13 @@ func (pos POS) DetailedString() string {
 func (pos *POS) RefreshStatus() {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
-	w.WriteField("licenseIdentification", pos.POS)
 	w.Close()
 
-	resp, err := pos.httpClient.Post("https://stonesoftlicenses.forcepoint.com/license/load.do", w.FormDataContentType(), &buf)
-	if errlog.Debug(err) {
-		Logger.Errorf("%s: %v", pos.POS, err)
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if errlog.Debug(err) {
-		Logger.Errorf("%s: %v", pos.POS, err)
-	}
+	resp, _ := pos.httpClient.R().
+		SetFormData(map[string]string{"licenseIdentification": pos.POS}).
+		Post("https://stonesoftlicenses.forcepoint.com/license/load.do")
+
+	body := resp.Body()
 	if match, _ := regexp.MatchString("(No license found with the given identifier|Permission denied)", string(body)); match {
 		pos.Status = Invalid
 		Logger.Infof("Unable to load PoS %s", pos)
@@ -160,33 +154,32 @@ func (pos *POS) Register(contactInfo *ContactInfo, resseller string) {
 		return
 	}
 
-	// Create multipart/form-data
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-	w.WriteField("bindingtype[2]", "product.bindtype.pos")
-	w.WriteField("binding[2]", "")
-	w.WriteField("platform[2]", "Appliance")
-	w.WriteField("terms", "true")
-	w.WriteField("terms", "false")
-	w.WriteField("firstname", contactInfo.Firstname)
-	w.WriteField("lastname", contactInfo.Lastname)
-	w.WriteField("email", contactInfo.Email)
-	w.WriteField("phone", contactInfo.Phone)
-	w.WriteField("company", contactInfo.Company)
-	w.WriteField("address", contactInfo.Address)
-	w.WriteField("zip", contactInfo.Zip)
-	w.WriteField("city", contactInfo.City)
-	w.WriteField("country", contactInfo.Country)
-	w.WriteField("state", contactInfo.State)
-	w.WriteField("reseller", resseller)
-	w.Close()
-
 	// Send POST request
-	_, err := pos.httpClient.Post("https://stonesoftlicenses.forcepoint.com/license/registerstonegate/save.do", w.FormDataContentType(), &buf)
+	pos.httpClient.R().
+		SetFormData(map[string]string{
+			"bindingtype[2]": "product.bindtype.pos",
+			"binding[2]":     "",
+			"platform[2]":    "Appliance",
+			"terms":          "true",
+			"firstname":      contactInfo.Firstname,
+			"lastname":       contactInfo.Lastname,
+			"email":          contactInfo.Email,
+			"phone":          contactInfo.Phone,
+			"company":        contactInfo.Company,
+			"address":        contactInfo.Address,
+			"zip":            contactInfo.Zip,
+			"city":           contactInfo.City,
+			"country":        contactInfo.Country,
+			"state":          contactInfo.State,
+			"reseller":       resseller,
+		}).
+		Post("https://stonesoftlicenses.forcepoint.com/license/registerstonegate/save.do")
 
-	if errlog.Debug(err) {
-		Logger.Errorf("%s: %v", pos.POS, err)
-	}
+	/*
+		if errlog.Debug(err) {
+			Logger.Errorf("%s: %v", pos.POS, err)
+		}
+	*/
 }
 
 func (pos *POS) WaitForLicenseFileGeneration() {
@@ -209,19 +202,12 @@ func (pos *POS) WaitForLicenseFileGeneration() {
 
 func (pos *POS) Download(outputDirectory string) bool {
 	// Get the data
-	resp, err := pos.httpClient.Get("https://stonesoftlicenses.forcepoint.com/license/licensefile.do?file=" + pos.LicenseFile)
+	_, err := pos.httpClient.R().
+		SetOutput(outputDirectory + "/" + pos.LicenseFile).
+		Get("https://stonesoftlicenses.forcepoint.com/license/licensefile.do?file=" + pos.LicenseFile)
 	if errlog.Debug(err) {
 		Logger.Errorf("%s: %v", pos.POS, err)
 	}
-
-	// Create the file
-	out, err := os.Create(outputDirectory + "/" + pos.LicenseFile)
-	if errlog.Debug(err) {
-		Logger.Errorf("%s: %v", pos.POS, err)
-	}
-
-	// Write the body to file
-	io.Copy(out, resp.Body)
 
 	return true
 }
@@ -267,16 +253,20 @@ func CreatePOSFormFiles() POSList {
 // RefreshStatus
 func (posList POSList) RefreshStatus(concurrentWorkers int) {
 	start := time.Now()
-	wg := sync.WaitGroup{}
+	wgWorker := sync.WaitGroup{}
+	wgWaiter := sync.WaitGroup{}
 	toDo := make(chan *POS)
 	done := make(chan *POS)
 
-	wg.Add(concurrentWorkers)
+	res := make(POSList, 0)
+	go posList.waitWorkDone(&wgWaiter, "Scanning", res, done)
+
+	wgWorker.Add(concurrentWorkers)
 	for i := 1; i <= concurrentWorkers; i++ {
 		go func(id int) {
 			count := 0
 			Logger.Debugf("Worker-%d started", id)
-			defer wg.Done()
+			defer wgWorker.Done()
 			for pos := range toDo {
 				pos.RefreshStatus()
 				done <- pos
@@ -286,20 +276,14 @@ func (posList POSList) RefreshStatus(concurrentWorkers int) {
 		}(i)
 	}
 
-	res := make(POSList, 0)
-	go func() {
-		for pos := range done {
-			res = append(res, pos)
-		}
-	}()
-
 	for _, pos := range posList {
 		toDo <- pos
 	}
-
 	close(toDo)
-	wg.Wait()
+
+	wgWorker.Wait()
 	close(done)
+	wgWaiter.Wait()
 
 	Logger.Infof("%d PoS processed in %v\n", len(posList), time.Since(start).Truncate(time.Millisecond))
 }
@@ -310,17 +294,21 @@ func (posList POSList) Register(concurrentWorkers int, contactInfo *ContactInfo,
 		Logger.Fatalf("Registrering PoS require contact informations from config file")
 	}
 	start := time.Now()
-	wg := sync.WaitGroup{}
+	wgWorkers := sync.WaitGroup{}
+	wgWaiter := sync.WaitGroup{}
 	toDo := make(chan *POS)
 	done := make(chan *POS)
 	counter := int64(0)
 
-	wg.Add(concurrentWorkers)
+	res := make(POSList, 0)
+	go posList.waitWorkDone(&wgWaiter, "Registrering", res, done)
+
+	wgWorkers.Add(concurrentWorkers)
 	for i := 1; i <= concurrentWorkers; i++ {
 		go func(id int) {
 			count := 0
 			Logger.Debugf("Worker-%d started", id)
-			defer wg.Done()
+			defer wgWorkers.Done()
 			for pos := range toDo {
 				currentStatus := pos.Status
 				pos.Register(contactInfo, resseller)
@@ -336,22 +324,16 @@ func (posList POSList) Register(concurrentWorkers int, contactInfo *ContactInfo,
 		}(i)
 	}
 
-	res := make(POSList, 0)
-	go func() {
-		for pos := range done {
-			res = append(res, pos)
-		}
-	}()
-
 	for _, pos := range posList {
 		toDo <- pos
 	}
-
 	close(toDo)
-	wg.Wait()
-	close(done)
 
-	fmt.Printf("\n%d new POS were registred\n", counter)
+	wgWorkers.Wait()
+	close(done)
+	wgWaiter.Wait()
+
+	fmt.Printf("%d new POS were registred\n\n", counter)
 	Logger.Infof("%d PoS processed in %v\n", len(posList), time.Since(start).Truncate(time.Millisecond))
 }
 
@@ -367,17 +349,21 @@ func (posList POSList) Download(concurrentWorkers int, outputDirectory string) {
 	}
 
 	start := time.Now()
-	wg := sync.WaitGroup{}
+	wgWorkers := sync.WaitGroup{}
+	wgWaiter := sync.WaitGroup{}
 	toDo := make(chan *POS)
 	done := make(chan *POS)
 	counter := int64(0)
 
-	wg.Add(concurrentWorkers)
+	res := make(POSList, 0)
+	go posList.waitWorkDone(&wgWaiter, "Downloading", res, done)
+
+	wgWorkers.Add(concurrentWorkers)
 	for i := 1; i <= concurrentWorkers; i++ {
 		go func(id int) {
 			count := 0
 			Logger.Debugf("Worker-%d started", id)
-			defer wg.Done()
+			defer wgWorkers.Done()
 			for pos := range toDo {
 				pos.RefreshStatus()
 				if pos.Download(outputDirectory) {
@@ -391,27 +377,42 @@ func (posList POSList) Download(concurrentWorkers int, outputDirectory string) {
 		}(i)
 	}
 
-	res := make(POSList, 0)
-	go func() {
-		for pos := range done {
-			res = append(res, pos)
-		}
-	}()
-
 	for _, pos := range posList {
 		toDo <- pos
 	}
-
 	close(toDo)
-	wg.Wait()
-	close(done)
 
-	fmt.Printf("\n%d license files were downloaded in './%s/' directory\n", counter, outputDirectory)
+	wgWorkers.Wait()
+	close(done)
+	wgWaiter.Wait()
+
+	fmt.Printf("%d license files were downloaded in './%s/' directory\n", counter, outputDirectory)
 	Logger.Infof("%d PoS processed in %v\n", len(posList), time.Since(start).Truncate(time.Millisecond))
 }
 
 //================================================================
 // Helpers
+
+func (posList POSList) waitWorkDone(wg *sync.WaitGroup, prefix string, res POSList, done <-chan *POS) {
+	var c = 0
+	defer func() {
+		wg.Done()
+		Logger.Debugf("Waiter done, %d PoS processed", c)
+	}()
+	wg.Add(1)
+
+	fmt.Println("")
+	Logger.Debugf("Waiter started")
+	for pos := range done {
+		res = append(res, pos)
+		c++
+		fmt.Printf("\r%s %d/%d", prefix, len(res), len(posList))
+	}
+	fmt.Printf("\r                                  \r")
+	bufStdout := bufio.NewWriter(os.Stdout)
+	bufStdout.Flush()
+
+}
 
 func (posList POSList) CountByStatus(state LicenseStatus) (res int) {
 	for _, pos := range posList {
@@ -447,14 +448,14 @@ func (posList POSList) GetByNotStatus(state LicenseStatus) (res POSList) {
 
 func (posList POSList) Display() {
 	posOk := posList.GetByNotStatus(Invalid)
-	fmt.Printf("\nFound %d valid PoS:\n", len(posOk))
+	fmt.Printf("Found %d valid PoS:\n", len(posOk))
 	for _, pos := range posOk {
 		fmt.Printf("- %v\n", pos.DetailedString())
 	}
 
 	posKo := posList.GetByStatus(Invalid)
 	if len(posKo) > 0 {
-		fmt.Printf("\nFound %d invalid PoS:\n", len(posKo))
+		fmt.Printf("Found %d invalid PoS:\n", len(posKo))
 		for _, pos := range posKo {
 			fmt.Printf("- %v\n", pos.DetailedString())
 		}

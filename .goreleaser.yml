@@ -24,7 +24,7 @@ builds:
       - amd64
     hooks:
       post:
-        - upx -qq -9 "{{ .Path }}"
+        - upx -qq --best "{{ .Path }}"
 
 checksum:
   name_template: "checksums.txt"

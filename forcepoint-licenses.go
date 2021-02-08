@@ -136,14 +136,6 @@ func runDownload(cmd *cobra.Command, args []string) {
 
 // runDownloadOnly
 func runDownloadOnly(cmd *cobra.Command, args []string) {
-	_, err := os.Stat(cfg.LicensesOutputDir)
-
-	if os.IsNotExist(err) {
-		err = os.Mkdir(cfg.LicensesOutputDir, os.ModePerm)
-		if errlog.Debug(err) {
-			logger.Fatalf("Unable to create directory %s", cfg.LicensesOutputDir)
-		}
-	}
 	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
 }
 
