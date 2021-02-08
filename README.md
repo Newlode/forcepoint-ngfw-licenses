@@ -6,9 +6,9 @@
 
 ```yaml
 ---
-concurrent_workers: 12     # Default: 8
-licences_output_dir: "out" # Default: jar-files
-resseller: ""              # Default: ""
+concurrent_workers: 12     # Optional, default: 8
+licences_output_dir: "out" # Optional, default: jar-files
+resseller: ""              # Optional, default: ""
 
 contact_info:
   firstname: "Foo"
@@ -22,7 +22,8 @@ contact_info:
   country:   "FR"
   state:     "75"
 
-#smc: # install command not yet implemented
+# Feature not yet implemented
+#smc: # install licences on the SMC
 #  ip: ""
 #  port: ""
 #  api_key: ""
