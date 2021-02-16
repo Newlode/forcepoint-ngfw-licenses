@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/logrusorgru/aurora"
+	"github.com/mattn/go-colorable"
 	"github.com/mbndr/logo"
 	"github.com/snwfdhmp/errlog"
 )
@@ -24,6 +25,12 @@ var (
 	reNGFWPoS = regexp.MustCompile(`[a-fA-F0-9]{10}-[a-fA-F0-9]{10}`)
 )
 
+func init() {
+	vrai := true
+	colorable.EnableColorsStdout(&vrai)
+}
+
+func SetSilentMode(s bool) {
 //=================================================================
 // LicenseStatus
 
