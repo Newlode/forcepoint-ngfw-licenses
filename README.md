@@ -31,14 +31,14 @@ contact_info:
 
 ## Usage
 
-You have to download "Purchase" html files and drop them in the same directory than `forcepoint-licenses` binary.
+You have to download "Purchase" html files, or put all engines PoS into one or many files and drop them in the same directory than `forcepoint-licenses` binary.
 
 ### To verify PoS validity and status
 
 This command will parse every html files and search for Forcepoint NGFW PoS. Each of them will be load on Forcepoint license center and registration status will be retrived.
 
 ```
-> forcepoint-licenses verify
+> forcepoint-licenses verify Purchase-Distributor-2019-08-15_151007.html engine_list.txt
 7 PoS read from 2 files
 
 Found 7 valid PoS:
@@ -56,7 +56,7 @@ Found 7 valid PoS:
 This command will `verify` all PoS, and register them, using informations from `config.yml` file.
 
 ```
-> forcepoint-licenses register
+> forcepoint-licenses register Purchase-Distributor-2019-08-15_151007.html engine_list.txt
 7 PoS read from 2 files
 
 Found 7 valid PoS:
@@ -85,7 +85,7 @@ Found 7 valid PoS:
 This command will `verify` and `register` all PoS using informations from `config.yml`, and then download licenses files.
 
 ```
-> forcepoint-licenses download
+> forcepoint-licenses download Purchase-Distributor-2019-08-15_151007.html engine_list.txt
 7 PoS read from 2 files
 
 Found 7 valid PoS:
@@ -114,7 +114,7 @@ Found 7 valid PoS:
 All steps can be done at once:
 
 ```
-> forcepoint-licenses download
+> forcepoint-licenses download Purchase-Distributor-2019-08-15_151007.html
 1 PoS read from 1 files
 
 Found 1 valid PoS:
