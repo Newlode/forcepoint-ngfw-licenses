@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/Newlode/forcepoint-ngfw-licenses/codes"
@@ -22,7 +25,9 @@ var (
 	rootCmd = &cobra.Command{
 		Use: "forcepoint-licenses",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			posList = ngfwlicenses.CreatePOSFormFiles()
+			format, _ := cmd.Flags().GetString("format")
+			ngfwlicenses.SetSilentMode(format == "json" || format == "csv")
+			posList = ngfwlicenses.CreatePOSFormFiles(args)
 		},
 	}
 
@@ -32,6 +37,8 @@ var (
 	outputDir         string = "jar-files"
 
 	posList ngfwlicenses.POSList
+
+	verifyFormat string
 )
 
 func init() {
@@ -82,7 +89,7 @@ func initConfig() {
 func runListCountries(cmd *cobra.Command, args []string) {
 	markdown, _ := cmd.Flags().GetBool("markdown")
 	if markdown {
-		fmt.Printf(codes.CountriesToMarkdown())
+		fmt.Println(codes.CountriesToMarkdown())
 		return
 	}
 	for _, code := range codes.CountriesCodes {
@@ -97,7 +104,7 @@ func runListCountries(cmd *cobra.Command, args []string) {
 func runListCountryStates(cmd *cobra.Command, args []string) {
 	markdown, _ := cmd.Flags().GetBool("markdown")
 	if markdown {
-		fmt.Printf(codes.StatesToMarkdown())
+		fmt.Println(codes.StatesToMarkdown())
 		// codes.StatesToMarkdown()
 		return
 	}
@@ -114,7 +121,25 @@ func runListCountryStates(cmd *cobra.Command, args []string) {
 // runVerify just check online the PoS status
 func runVerify(cmd *cobra.Command, args []string) {
 	posList.RefreshStatus(concurrentWorkers)
-	posList.Display()
+	switch verifyFormat {
+	case "json":
+		obj := struct {
+			PosList ngfwlicenses.POSList `json:"pos_list"`
+		}{PosList: posList}
+		out, _ := json.MarshalIndent(obj, "", "  ")
+		fmt.Println(string(out))
+	case "csv":
+		w := csv.NewWriter(os.Stdout)
+		for _, record := range posList {
+			line := []string{record.POS, string(record.Status), record.LicenseID, record.ProductName, record.SerialNumber, record.Company}
+			if err := w.Write(line); err != nil {
+				log.Fatalln("error writing record to csv:", err)
+			}
+		}
+		w.Flush()
+	default:
+		posList.Display()
+	}
 }
 
 // runRegister
@@ -140,9 +165,11 @@ func runDownloadOnly(cmd *cobra.Command, args []string) {
 }
 
 // runNotImplemented
+/*
 func runNotImplemented(cmd *cobra.Command, args []string) {
 	logger.Fatalf("%s not yet implemented\n", cmd.Use)
 }
+*/
 
 //=================================================================
 // Config
@@ -189,7 +216,7 @@ func main() {
 	var cmdListCountryStates = &cobra.Command{
 		Use:              "list-country-states [country-code]",
 		Short:            "Display the list of the states of a country and their codes",
-		Args:             cobra.MaximumNArgs(1),
+		Args:             cobra.ExactArgs(1),
 		ValidArgs:        codes.CountriesCodes,
 		Run:              runListCountryStates,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
@@ -199,23 +226,24 @@ func main() {
 	var cmdVerify = &cobra.Command{
 		Use:   "verify",
 		Short: "Verify POS status",
-		Args:  cobra.NoArgs,
+		Args:  cobra.ArbitraryArgs,
 		Run:   runVerify,
 	}
+	cmdVerify.Flags().StringVarP(&verifyFormat, "format", "f", "none", "Choose a specific output format [none|csv|json]")
 
 	var cmdRegister = &cobra.Command{
 		Use:    "register",
 		Short:  "Verify and register all PoS",
-		Args:   cobra.NoArgs,
+		Args:   cobra.ArbitraryArgs,
 		PreRun: runVerify,
 		Run:    runRegister,
 	}
-	cmdRegister.Flags().StringArrayP("from-file", "f", nil, "filename")
+	//? cmdRegister.Flags().StringArrayP("from-file", "f", nil, "filename")
 
 	var cmdDownload = &cobra.Command{
 		Use:     "download",
 		Short:   "Verify, register and download licenses files for all PoS",
-		Args:    cobra.NoArgs,
+		Args:    cobra.ArbitraryArgs,
 		Run:     runDownload,
 		Aliases: []string{"register-and-download"},
 	}
@@ -223,31 +251,36 @@ func main() {
 	var cmdDownloadOnly = &cobra.Command{
 		Use:   "download-only",
 		Short: "Verify and download licenses files for already registered PoS",
-		Args:  cobra.NoArgs,
+		Args:  cobra.ArbitraryArgs,
 		Run:   runDownloadOnly,
 	}
 
-	var cmdInstall = &cobra.Command{
-		Use:              "install",
-		Short:            "Verify, register and download licenses on SMC for all PoS",
-		Args:             cobra.NoArgs,
-		Run:              runNotImplemented,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
-	}
+	/*
+		var cmdInstall = &cobra.Command{
+			Use:              "install",
+			Short:            "Verify, register and download licenses on SMC for all PoS",
+			Args:             cobra.NoArgs,
+			Run:              runNotImplemented,
+			PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+		}
+	*/
 
-	var cmdInstallOnly = &cobra.Command{
-		Use:              "install-only",
-		Short:            "Verify and install licenses on SMC for already registered PoS",
-		Args:             cobra.NoArgs,
-		Run:              runNotImplemented,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
-	}
+	/*
+		var cmdInstallOnly = &cobra.Command{
+			Use:              "install-only",
+			Short:            "Verify and install licenses on SMC for already registered PoS",
+			Args:             cobra.NoArgs,
+			Run:              runNotImplemented,
+			PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+		}
+	*/
 
 	rootCmd.AddCommand(
 		cmdListCountries, cmdListCountryStates,
 		cmdVerify,
 		cmdRegister,
 		cmdDownload, cmdDownloadOnly,
-		cmdInstall, cmdInstallOnly)
+		//* cmdInstall, cmdInstallOnly,
+	)
 	rootCmd.Execute()
 }

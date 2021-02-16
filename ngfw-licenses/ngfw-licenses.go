@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"os"
-	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +23,7 @@ import (
 var (
 	Logger    *logo.Logger
 	reNGFWPoS = regexp.MustCompile(`[a-fA-F0-9]{10}-[a-fA-F0-9]{10}`)
+	silent    bool
 )
 
 func init() {
@@ -31,6 +32,9 @@ func init() {
 }
 
 func SetSilentMode(s bool) {
+	silent = s
+}
+
 //=================================================================
 // LicenseStatus
 
@@ -44,6 +48,10 @@ const (
 	Registering       LicenseStatus = "REGISTERING"
 	Registered        LicenseStatus = "REGISTERED"
 	RegistrationError LicenseStatus = "REGISTRATION_ERROR"
+)
+
+var (
+	LicenseStatuses = []LicenseStatus{Registered, Unregistered, Registering, Unknown, Valid, Invalid, RegistrationError}
 )
 
 func (s LicenseStatus) String() string {
@@ -85,13 +93,13 @@ type ContactInfo struct {
 
 type POS struct {
 	httpClient   *resty.Client
-	POS          string
-	Status       LicenseStatus
-	LicenseID    string
-	ProductName  string
-	LicenseFile  string
-	SerialNumber string
-	Company      string
+	POS          string        `json:"pos"`
+	Status       LicenseStatus `json:"licence_status"`
+	LicenseID    string        `json:"license_id"`
+	ProductName  string        `json:"product_name"`
+	licenseFile  string        // `json:"license_file"`
+	SerialNumber string        `json:"serial_number"`
+	Company      string        `json:"company"`
 }
 
 func NewPOS(pos string) *POS {
@@ -150,7 +158,7 @@ func (pos *POS) RefreshStatus() {
 
 		// If jar is available, we store it as LicenseFile
 		reSglic := regexp.MustCompile(`sglic-\d+-\d+\.jar`)
-		pos.LicenseFile = string(reSglic.Find(body))
+		pos.licenseFile = string(reSglic.Find(body))
 	}
 }
 
@@ -210,8 +218,8 @@ func (pos *POS) WaitForLicenseFileGeneration() {
 func (pos *POS) Download(outputDirectory string) bool {
 	// Get the data
 	_, err := pos.httpClient.R().
-		SetOutput(outputDirectory + "/" + pos.LicenseFile).
-		Get("https://stonesoftlicenses.forcepoint.com/license/licensefile.do?file=" + pos.LicenseFile)
+		SetOutput(outputDirectory + "/" + pos.licenseFile).
+		Get("https://stonesoftlicenses.forcepoint.com/license/licensefile.do?file=" + pos.licenseFile)
 	if errlog.Debug(err) {
 		Logger.Errorf("%s: %v", pos.POS, err)
 	}
@@ -225,11 +233,14 @@ func (pos *POS) Download(outputDirectory string) bool {
 type POSList []*POS
 
 // CreatePOSFormFiles
-func CreatePOSFormFiles() POSList {
+func CreatePOSFormFiles(args []string) POSList {
 	tmp := make([]string, 0)
-	filenames, _ := filepath.Glob("*.html")
-	for _, filename := range filenames {
-		data, _ := ioutil.ReadFile(filename)
+	// filenames, _ := filepath.Glob("*.html")
+	for _, filename := range args {
+		data, err := ioutil.ReadFile(filename)
+		if err != nil {
+			Logger.Fatalf("%v", err)
+		}
 		tmp = append(tmp, reNGFWPoS.FindAllString(string(data), -1)...)
 	}
 
@@ -253,7 +264,9 @@ func CreatePOSFormFiles() POSList {
 		res = append(res, NewPOS(pos))
 	}
 
-	fmt.Printf("%d PoS read from %d files\n", len(res), len(filenames))
+	if !silent {
+		fmt.Printf("%d PoS read from %d files\n", len(res), len(args))
+	}
 	return res
 }
 
@@ -413,7 +426,9 @@ func (posList POSList) waitWorkDone(wg *sync.WaitGroup, prefix string, res POSLi
 	for pos := range done {
 		res = append(res, pos)
 		c++
-		fmt.Printf("\r%s %d/%d", prefix, len(res), len(posList))
+		if !silent {
+			fmt.Printf("\r%s %d/%d", prefix, len(res), len(posList))
+		}
 	}
 	fmt.Printf("\r                                  \r")
 	bufStdout := bufio.NewWriter(os.Stdout)
@@ -454,17 +469,13 @@ func (posList POSList) GetByNotStatus(state LicenseStatus) (res POSList) {
 }
 
 func (posList POSList) Display() {
-	posOk := posList.GetByNotStatus(Invalid)
-	fmt.Printf("Found %d valid PoS:\n", len(posOk))
-	for _, pos := range posOk {
-		fmt.Printf("- %v\n", pos.DetailedString())
-	}
-
-	posKo := posList.GetByStatus(Invalid)
-	if len(posKo) > 0 {
-		fmt.Printf("Found %d invalid PoS:\n", len(posKo))
-		for _, pos := range posKo {
-			fmt.Printf("- %v\n", pos.DetailedString())
+	for _, status := range LicenseStatuses {
+		posList := posList.GetByStatus(status)
+		if len(posList) > 0 {
+			fmt.Printf("Found %d %v PoS:\n", len(posList), strings.ToLower(string(status)))
+			for _, pos := range posList {
+				fmt.Printf("- %v\n", pos.DetailedString())
+			}
 		}
 	}
 }
