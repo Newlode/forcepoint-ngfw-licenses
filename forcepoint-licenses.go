@@ -137,7 +137,7 @@ func runVerify(cmd *cobra.Command, args []string) {
 		fmt.Println(string(out))
 	case "csv":
 		w := csv.NewWriter(os.Stdout)
-		w.Write([]string{"pos", "licence_status", "license_id", "product_name", "serial_number", "maintenance_status", "maintenance_end_date", "company"})
+		w.Write([]string{"POS", "LicenseStatus", "LicenseID", "ProductName", "SerialNumber", "MaintenanceStatus", "MaintenanceEndDate", "Company"})
 		for _, record := range posList {
 			line := []string{record.POS, string(record.Status), record.LicenseID, record.ProductName, record.SerialNumber, string(record.MaintenanceStatus), record.MaintenanceEndDate, record.Company}
 			if err := w.Write(line); err != nil {
