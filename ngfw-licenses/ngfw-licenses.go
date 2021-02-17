@@ -39,6 +39,7 @@ func SetSilentMode(s bool) {
 // LicenseStatus
 
 type LicenseStatus string
+type SupportStatus string
 
 const (
 	Unknown           LicenseStatus = "UNKNOWN"
@@ -48,6 +49,8 @@ const (
 	Registering       LicenseStatus = "REGISTERING"
 	Registered        LicenseStatus = "REGISTERED"
 	RegistrationError LicenseStatus = "REGISTRATION_ERROR"
+	Expired           SupportStatus = "Expired"
+	Activated         SupportStatus = "Activated"
 )
 
 var (
@@ -92,14 +95,17 @@ type ContactInfo struct {
 // POS
 
 type POS struct {
-	httpClient   *resty.Client
-	POS          string        `json:"pos"`
-	Status       LicenseStatus `json:"licence_status"`
-	LicenseID    string        `json:"license_id"`
-	ProductName  string        `json:"product_name"`
-	licenseFile  string        // `json:"license_file"`
-	SerialNumber string        `json:"serial_number"`
-	Company      string        `json:"company"`
+	httpClient  *resty.Client
+	licenseFile string // `json:"license_file"`
+
+	POS                string        `json:"pos"`
+	Status             LicenseStatus `json:"licence_status"`
+	LicenseID          string        `json:"license_id"`
+	ProductName        string        `json:"product_name"`
+	MaintenanceStatus  SupportStatus `json:"support_status"`
+	MaintenanceEndDate string        `json:"support_end_date"`
+	SerialNumber       string        `json:"serial_number"`
+	Company            string        `json:"company"`
 }
 
 func NewPOS(pos string) *POS {
@@ -115,17 +121,27 @@ func (pos POS) String() string {
 }
 
 func (pos POS) DetailedString() string {
-	return fmt.Sprintf(`%s {LicenseStatus:"%s", SN:"%s", ProductName:"%s", Company:"%s"}`,
+	maintenanceStatus := aurora.Gray(12, pos.MaintenanceStatus)
+	maintenanceEndDate := aurora.Gray(12, pos.MaintenanceEndDate)
+
+	if pos.MaintenanceStatus == Expired {
+		maintenanceStatus = aurora.Yellow(pos.MaintenanceStatus)
+		maintenanceEndDate = aurora.Yellow(pos.MaintenanceEndDate)
+	}
+
+	return fmt.Sprintf(`%s {LicenseStatus:"%s", SN:"%s", ProductName:"%s", MaintenanceStatus:"%s", MaintenanceEndDate:"%s", Company:"%s"}`,
 		pos,
 		pos.Status,
 		aurora.Gray(12, pos.SerialNumber),
 		aurora.Gray(12, pos.ProductName),
+		maintenanceStatus,
+		maintenanceEndDate,
 		aurora.Gray(12, pos.Company),
 	)
 }
 
 // RefreshStatus is in charge of transitionning from state New to [Valid|Invalid]
-func (pos *POS) RefreshStatus() {
+func (pos *POS) RefreshStatus(showErrors bool) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	w.Close()
@@ -142,15 +158,19 @@ func (pos *POS) RefreshStatus() {
 	}
 	pos.Status = Valid
 
-	re := regexp.MustCompile(`(?m)<h3>Your Forcepoint License (\d+) .*</h3>(?:.*\s+)*<table class="LicenseData">\s+<caption>(.*)</caption>(?:.*\s+)*<caption>Appliance Hardware</caption>(?:.*\s+)*?<td>\s*(.*)\s*</td>(?:.*\s+)*<caption>License Company</caption>(?:.*\s+)*<td scope="row" class="Scope_row">\s+(.*?)\s+</td>\s+`)
+	re := regexp.MustCompile(`(?m)<h3>Your Forcepoint License (\d+) .*</h3>(?:.*\s+)*<table class="LicenseData">\s+<caption>(.*)</caption>(?:.*\s+)*<caption>Appliance Hardware</caption>(?:.*\s+)*?<td>\s*(.*)\s*</td>(?:.*\s+)*<caption>Support &amp; Maintenance</caption>(?:.*\s+)*?<td.*>\s*(.*)\s*</td>(?:.*\s+)*(?:.*\s+)*?<td>\s*(.*)\s*</td>(?:.*\s+)*<caption>License Company</caption>(?:.*\s+)*<td scope="row" class="Scope_row">\s+(.*?)\s+</td>\s+`)
 	m := re.FindStringSubmatch(string(body))
-	if len(m) != 5 {
-		Logger.Errorf("Unable to parse license data for %s", pos)
+	if len(m) != 7 {
+		if !showErrors {
+			Logger.Errorf("Unable to parse license data for %s", pos)
+		}
 	} else {
 		pos.LicenseID = m[1]
 		pos.ProductName = m[2]
 		pos.SerialNumber = m[3]
-		pos.Company = m[4]
+		pos.MaintenanceStatus = SupportStatus(m[4])
+		pos.MaintenanceEndDate = m[5]
+		pos.Company = m[6]
 	}
 
 	if match, _ := regexp.MatchString("Registered", string(body)); match {
@@ -200,7 +220,7 @@ func (pos *POS) Register(contactInfo *ContactInfo, resseller string) {
 func (pos *POS) WaitForLicenseFileGeneration() {
 	maxEnd := time.Now().Add(time.Minute)
 	for {
-		pos.RefreshStatus()
+		pos.RefreshStatus(true)
 
 		if pos.Status == Registered {
 			break
@@ -265,7 +285,7 @@ func CreatePOSFormFiles(args []string) POSList {
 	}
 
 	if !silent {
-		fmt.Printf("%d PoS read from %d files\n", len(res), len(args))
+		fmt.Printf("%d PoS read from %d files", len(res), len(args))
 	}
 	return res
 }
@@ -288,7 +308,7 @@ func (posList POSList) RefreshStatus(concurrentWorkers int) {
 			Logger.Debugf("Worker-%d started", id)
 			defer wgWorker.Done()
 			for pos := range toDo {
-				pos.RefreshStatus()
+				pos.RefreshStatus(true)
 				done <- pos
 				count++
 			}
@@ -345,6 +365,11 @@ func (posList POSList) Register(concurrentWorkers int, contactInfo *ContactInfo,
 	}
 
 	for _, pos := range posList {
+		// We want to register only Valid PoS
+		if pos.Status != Valid {
+			continue
+		}
+
 		toDo <- pos
 	}
 	close(toDo)
@@ -385,7 +410,6 @@ func (posList POSList) Download(concurrentWorkers int, outputDirectory string) {
 			Logger.Debugf("Worker-%d started", id)
 			defer wgWorkers.Done()
 			for pos := range toDo {
-				pos.RefreshStatus()
 				if pos.Download(outputDirectory) {
 					count++
 					atomic.AddInt64(&counter, 1)
@@ -398,6 +422,11 @@ func (posList POSList) Download(concurrentWorkers int, outputDirectory string) {
 	}
 
 	for _, pos := range posList {
+		// We want to dopwnload only Registered PoS
+		if pos.Status != Registered {
+			continue
+		}
+
 		toDo <- pos
 	}
 	close(toDo)
@@ -472,7 +501,7 @@ func (posList POSList) Display() {
 	for _, status := range LicenseStatuses {
 		posList := posList.GetByStatus(status)
 		if len(posList) > 0 {
-			fmt.Printf("Found %d %v PoS:\n", len(posList), strings.ToLower(string(status)))
+			fmt.Printf("\nFound %d %v PoS:\n", len(posList), strings.ToLower(string(status)))
 			for _, pos := range posList {
 				fmt.Printf("- %v\n", pos.DetailedString())
 			}

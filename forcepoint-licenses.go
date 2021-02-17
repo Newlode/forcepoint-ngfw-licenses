@@ -23,7 +23,14 @@ var (
 	cfgFile string
 
 	rootCmd = &cobra.Command{
-		Use: "forcepoint-licenses",
+		Use:   "forcepoint-licenses",
+		Short: "forcepoint-licenses is a tool help you to register Forcepoint Next Generation Firewalls licenses",
+		Long: `forcepoint-licenses is a tool to verify, register and download licenses for Forcepoint Next Generation Firewalls
+		
+Please report issues or feature requests using Github project page at https://github.com/Newlode/forcepoint-ngfw-licenses/issues
+		
+Written by Newlode https://www.newlode.io
+`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			format, _ := cmd.Flags().GetString("format")
 			ngfwlicenses.SetSilentMode(format == "json" || format == "csv")
@@ -130,8 +137,9 @@ func runVerify(cmd *cobra.Command, args []string) {
 		fmt.Println(string(out))
 	case "csv":
 		w := csv.NewWriter(os.Stdout)
+		w.Write([]string{"pos", "licence_status", "license_id", "product_name", "serial_number", "maintenance_status", "maintenance_end_date", "company"})
 		for _, record := range posList {
-			line := []string{record.POS, string(record.Status), record.LicenseID, record.ProductName, record.SerialNumber, record.Company}
+			line := []string{record.POS, string(record.Status), record.LicenseID, record.ProductName, record.SerialNumber, string(record.MaintenanceStatus), record.MaintenanceEndDate, record.Company}
 			if err := w.Write(line); err != nil {
 				log.Fatalln("error writing record to csv:", err)
 			}
@@ -155,12 +163,13 @@ func runDownload(cmd *cobra.Command, args []string) {
 	posList.RefreshStatus(concurrentWorkers)
 	posList.Display()
 	posList.Register(cfg.ConcurrentWorkers, cfg.ContactInfo, cfg.Reseller)
-	posList.Display()
 	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
 }
 
 // runDownloadOnly
 func runDownloadOnly(cmd *cobra.Command, args []string) {
+	posList.RefreshStatus(concurrentWorkers)
+	posList.Display()
 	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
 }
 
@@ -177,10 +186,7 @@ func runNotImplemented(cmd *cobra.Command, args []string) {
 func readConfig() {
 	// viper.SetConfigName("config.yml")
 	viper.SetConfigType("yaml")
-	// viper.AddConfigPath(".")
 
-	//viper.SetDefault("concurrent_workers", 2)
-	//viper.SetDefault("licenses_output_dir", "./out/")
 	viper.SetDefault("contact_info", nil)
 
 	viper.ReadInConfig()
