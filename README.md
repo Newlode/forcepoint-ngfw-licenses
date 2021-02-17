@@ -31,24 +31,26 @@ contact_info:
 
 ## Usage
 
-You have to download "Purchase" html files, or put all engines PoS into one or many files and drop them in the same directory than `forcepoint-licenses` binary.
+You have to download "Purchase" html files, or put all engines PoS into one or many files and give them to `forcepoint-licenses` binary as arguments.
 
 ### To verify PoS validity and status
 
-This command will parse every html files and search for Forcepoint NGFW PoS. Each of them will be load on Forcepoint license center and registration status will be retrived.
+This command will parse all files given from commande line and search for Forcepoint NGFW PoS. Each of them will be load on Forcepoint license center and registration status will be retrived.
+
+You can use `--format` flag to request JSON or CSV output.
 
 ```
 > forcepoint-licenses verify Purchase-Distributor-2019-08-15_151007.html engine_list.txt
 7 PoS read from 2 files
 
 Found 7 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 ```
 
 ### To register PoS
@@ -60,24 +62,24 @@ This command will `verify` all PoS, and register them, using informations from `
 7 PoS read from 2 files
 
 Found 7 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", 
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
 2 new POS were registred
 
 Found 7 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 ```
 
 ### To download PoS
@@ -89,24 +91,24 @@ This command will `verify` and `register` all PoS using informations from `confi
 7 PoS read from 2 files
 
 Found 7 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
 0 new POS were registred
 
 Found 7 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 2101 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
 7 license files were downloaded in './out/' directory
 ```
@@ -118,12 +120,12 @@ All steps can be done at once:
 1 PoS read from 1 files
 
 Found 1 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
 1 new POS were registred
 
 Found 1 valid PoS:
-- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", Company:"My Corp"}
+- XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
 1 license files were downloaded in './out/' directory
 ```
