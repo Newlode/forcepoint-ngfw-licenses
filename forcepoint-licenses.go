@@ -33,8 +33,9 @@ Written by Newlode https://www.newlode.io
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			format, _ := cmd.Flags().GetString("format")
-			ngfwlicenses.SetSilentMode(format == "json" || format == "csv")
-			posList = ngfwlicenses.CreatePOSFormFiles(args)
+			debug, _ := cmd.Flags().GetBool("debug")
+			ngfwlicenses.SetSilentMode(format == "json" || format == "csv" || debug)
+			posList = ngfwlicenses.ReadPOSFormArgs(args)
 		},
 	}
 

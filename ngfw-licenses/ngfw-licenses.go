@@ -49,8 +49,9 @@ const (
 	Registering       LicenseStatus = "REGISTERING"
 	Registered        LicenseStatus = "REGISTERED"
 	RegistrationError LicenseStatus = "REGISTRATION_ERROR"
-	Expired           SupportStatus = "Expired"
 	Activated         SupportStatus = "Activated"
+	Expired           SupportStatus = "Expired"
+	Spare             SupportStatus = "Spare"
 )
 
 var (
@@ -70,6 +71,22 @@ func (s LicenseStatus) String() string {
 		r = aurora.Green(string(s))
 	default:
 		r = aurora.Cyan(string(s))
+	}
+
+	return r.String()
+}
+
+func (s SupportStatus) String() string {
+	var r aurora.Value
+	switch s {
+	case Activated:
+		r = aurora.Green(string(s))
+	case Expired:
+		r = aurora.Yellow(string(s))
+	case Spare:
+		r = aurora.Blue(string(s))
+	default:
+		r = aurora.Gray(12, string(s))
 	}
 
 	return r.String()
@@ -106,6 +123,8 @@ type POS struct {
 	MaintenanceEndDate string        `json:"support_end_date"`
 	SerialNumber       string        `json:"serial_number"`
 	Company            string        `json:"company"`
+
+	Error string `json:"error,omitempty"`
 }
 
 func NewPOS(pos string) *POS {
@@ -121,12 +140,14 @@ func (pos POS) String() string {
 }
 
 func (pos POS) DetailedString() string {
-	maintenanceStatus := aurora.Gray(12, pos.MaintenanceStatus)
+	// maintenanceStatus := aurora.Gray(12, pos.MaintenanceStatus)
 	maintenanceEndDate := aurora.Gray(12, pos.MaintenanceEndDate)
 
-	if pos.MaintenanceStatus == Expired {
-		maintenanceStatus = aurora.Yellow(pos.MaintenanceStatus)
+	switch pos.MaintenanceStatus {
+	case Expired:
 		maintenanceEndDate = aurora.Yellow(pos.MaintenanceEndDate)
+	case Spare:
+		maintenanceEndDate = aurora.Blue(pos.MaintenanceEndDate)
 	}
 
 	return fmt.Sprintf(`%s {LicenseStatus:"%s", SN:"%s", ProductName:"%s", MaintenanceStatus:"%s", MaintenanceEndDate:"%s", Company:"%s"}`,
@@ -134,9 +155,16 @@ func (pos POS) DetailedString() string {
 		pos.Status,
 		aurora.Gray(12, pos.SerialNumber),
 		aurora.Gray(12, pos.ProductName),
-		maintenanceStatus,
+		pos.MaintenanceStatus,
 		maintenanceEndDate,
 		aurora.Gray(12, pos.Company),
+	)
+}
+func (pos POS) DetailedError() string {
+	return fmt.Sprintf(`%s {LicenseStatus:"%s", Error:"%s"}`,
+		pos,
+		pos.Status,
+		aurora.Yellow(pos.Error),
 	)
 }
 
@@ -146,31 +174,50 @@ func (pos *POS) RefreshStatus(showErrors bool) {
 	w := multipart.NewWriter(&buf)
 	w.Close()
 
-	resp, _ := pos.httpClient.R().
-		SetFormData(map[string]string{"licenseIdentification": pos.POS}).
-		Post("https://stonesoftlicenses.forcepoint.com/license/load.do")
+	var body []byte
+	for {
+		resp, _ := pos.httpClient.R().
+			SetFormData(map[string]string{"licenseIdentification": pos.POS}).
+			Post("https://stonesoftlicenses.forcepoint.com/license/load.do")
 
-	body := resp.Body()
-	if match, _ := regexp.MatchString("(No license found with the given identifier|Permission denied)", string(body)); match {
-		pos.Status = Invalid
-		Logger.Infof("Unable to load PoS %s", pos)
-		return
+		body = resp.Body()
+		if strings.Contains(string(body), "No license found with the given identifier") {
+			pos.Status = Invalid
+			pos.Error = "No license found with the given identifier"
+			Logger.Infof("'No license found with the given identifier' for %s", pos)
+			return
+		}
+		if strings.Contains(string(body), "Permission denied") {
+			pos.Status = Invalid
+			pos.Error = "Permission denied"
+			Logger.Infof("'Permission denied' for %s", pos)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
+		pos.Status = Valid
+		break
 	}
-	pos.Status = Valid
 
-	re := regexp.MustCompile(`(?m)<h3>Your Forcepoint License (\d+) .*</h3>(?:.*\s+)*<table class="LicenseData">\s+<caption>(.*)</caption>(?:.*\s+)*<caption>Appliance Hardware</caption>(?:.*\s+)*?<td>\s*(.*)\s*</td>(?:.*\s+)*<caption>Support &amp; Maintenance</caption>(?:.*\s+)*?<td.*>\s*(.*)\s*</td>(?:.*\s+)*(?:.*\s+)*?<td>\s*(.*)\s*</td>(?:.*\s+)*<caption>License Company</caption>(?:.*\s+)*<td scope="row" class="Scope_row">\s+(.*?)\s+</td>\s+`)
+	re := regexp.MustCompile(`(?m)<h3>Your Forcepoint License (\d+) .*</h3>(?:.*\s+)*<table class="LicenseData">\s+<caption>(.*)</caption>(?:.*\s+)*<caption>Appliance Hardware</caption>(?:.*\s+)*?<td>\s*(.*)\s*</td>(?:.*\s+)*<caption>Support &amp; Maintenance</caption>(?:.*\s+)*?(?:<td.*>\s*(.*)\s*</td>(?:.*\s+)*(?:.*\s+)*?<td>\s*(.*)\s*</td>|.*(No Support &amp; Maintenance))(?:.*\s+)*<caption>License Company</caption>(?:.*\s+)*<td scope="row" class="Scope_row">\s+(.*?)\s+</td>\s+`)
 	m := re.FindStringSubmatch(string(body))
-	if len(m) != 7 {
+	if len(m) != 8 {
+		pos.Error = fmt.Sprintf("Unable to parse license data for %s", pos)
 		if !showErrors {
-			Logger.Errorf("Unable to parse license data for %s", pos)
+			Logger.Errorf(pos.Error)
 		}
 	} else {
 		pos.LicenseID = m[1]
 		pos.ProductName = m[2]
 		pos.SerialNumber = m[3]
-		pos.MaintenanceStatus = SupportStatus(m[4])
-		pos.MaintenanceEndDate = m[5]
-		pos.Company = m[6]
+		pos.Company = m[7]
+		if m[6] == "No Support &amp; Maintenance" {
+			pos.MaintenanceStatus = SupportStatus("Spare")
+			pos.MaintenanceEndDate = "Spare"
+		} else {
+			pos.MaintenanceStatus = SupportStatus(m[4])
+			pos.MaintenanceEndDate = m[5]
+		}
 	}
 
 	if match, _ := regexp.MatchString("Registered", string(body)); match {
@@ -252,16 +299,26 @@ func (pos *POS) Download(outputDirectory string) bool {
 
 type POSList []*POS
 
-// CreatePOSFormFiles
-func CreatePOSFormFiles(args []string) POSList {
+// ReadPOSFormArgs
+func ReadPOSFormArgs(args []string) POSList {
 	tmp := make([]string, 0)
-	// filenames, _ := filepath.Glob("*.html")
-	for _, filename := range args {
-		data, err := ioutil.ReadFile(filename)
-		if err != nil {
-			Logger.Fatalf("%v", err)
+	countFromArgs, countFiles := 0, 0
+
+	for _, arg := range args {
+		// if arg is a PoS
+		if reNGFWPoS.MatchString(arg) {
+			// just append it to the list
+			tmp = append(tmp, arg)
+			countFromArgs++
+		} else {
+			// else, it should be a filename
+			data, err := ioutil.ReadFile(arg)
+			if err != nil {
+				Logger.Fatalf("%v", err)
+			}
+			tmp = append(tmp, reNGFWPoS.FindAllString(string(data), -1)...)
+			countFiles++
 		}
-		tmp = append(tmp, reNGFWPoS.FindAllString(string(data), -1)...)
 	}
 
 	res := make(POSList, 0)
@@ -285,7 +342,7 @@ func CreatePOSFormFiles(args []string) POSList {
 	}
 
 	if !silent {
-		fmt.Printf("%d PoS read from %d files", len(res), len(args))
+		fmt.Printf("%d PoS read, %d from command-line, and %d from %d files", len(res), countFromArgs, len(res)-countFromArgs, countFiles)
 	}
 	return res
 }
@@ -503,7 +560,11 @@ func (posList POSList) Display() {
 		if len(posList) > 0 {
 			fmt.Printf("\nFound %d %v PoS:\n", len(posList), strings.ToLower(string(status)))
 			for _, pos := range posList {
-				fmt.Printf("- %v\n", pos.DetailedString())
+				if pos.Error != "" {
+					fmt.Printf("- %v\n", pos.DetailedError())
+				} else {
+					fmt.Printf("- %v\n", pos.DetailedString())
+				}
 			}
 		}
 	}
