@@ -196,6 +196,7 @@ func (pos *POS) RefreshStatus(showErrors bool) {
 		}
 
 		pos.Status = Valid
+		pos.Error = ""
 		break
 	}
 
