@@ -14,6 +14,12 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-dist/
+.vscode/
 
+dist/
+dumps/
 html-files/
+jar-files/
+garbage/
+
+*_test.go

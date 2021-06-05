@@ -8,10 +8,11 @@ import (
 	"os"
 
 	"github.com/Newlode/forcepoint-ngfw-licenses/codes"
+	"github.com/Newlode/forcepoint-ngfw-licenses/config"
 	ngfwlicenses "github.com/Newlode/forcepoint-ngfw-licenses/ngfw-licenses"
+	"github.com/Newlode/forcepoint-ngfw-licenses/ngfw-licenses/pox"
 	"github.com/logrusorgru/aurora"
 	"github.com/mbndr/logo"
-	"github.com/snwfdhmp/errlog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -19,8 +20,7 @@ import (
 var (
 	logger *logo.Logger
 
-	cfg     config
-	cfgFile string
+	cfg = &config.Cfg
 
 	rootCmd = &cobra.Command{
 		Use:   "forcepoint-licenses",
@@ -34,61 +34,48 @@ Written by Newlode https://www.newlode.io
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			format, _ := cmd.Flags().GetString("format")
 			debug, _ := cmd.Flags().GetBool("debug")
-			ngfwlicenses.SetSilentMode(format == "json" || format == "csv" || debug)
-			posList = ngfwlicenses.ReadPOSFormArgs(args)
+			cfg.Silent = format == "json" || format == "csv" || debug
+
+			if posOnly && polOnly {
+				logger.Fatalf("--pos-only and --pol-only are mutually exclusive")
+			}
+
+			poxList = pox.ReadPoXFormArgs(args, polOnly, posOnly)
 		},
 	}
 
-	debug             bool
-	verbose           bool
-	concurrentWorkers int    = 8
-	outputDir         string = "jar-files"
-
-	posList ngfwlicenses.POSList
+	poxList pox.PoXList
 
 	verifyFormat string
+	posOnly      bool
+	polOnly      bool
 )
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	logger = logo.NewSimpleLogger(os.Stderr, logo.WARN, aurora.Cyan("MAIN  ").String(), true)
-	ngfwlicenses.Logger = logo.NewSimpleLogger(os.Stderr, logo.WARN, aurora.Magenta("NGFWLIC").String(), true)
+	logger = config.GetNewLogger(aurora.Cyan("MAIN  ").String())
+	ngfwlicenses.Logger = config.GetNewLogger(aurora.Magenta("NGFWLIC").String())
+	pox.Logger = config.GetNewLogger(aurora.Green("POX   ").String())
+	config.Logger = config.GetNewLogger(aurora.Red("CONFIG").String())
 
 	// ConfigFile
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is config.yml in current directory)")
+	rootCmd.PersistentFlags().StringVarP(&config.ConfigFile, "config", "c", "", "config file (default is config.yml in current directory)")
+
+	// PoSOnly / PoLOnly
+	rootCmd.PersistentFlags().BoolVar(&posOnly, "pos-only", false, "PoS only")
+	rootCmd.PersistentFlags().BoolVar(&polOnly, "pol-only", false, "PoL-only")
 
 	// Debug / Verbose
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug output")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Debug, "debug", "d", false, "Enable debug output")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")
 
 	// ConcurrentWorkers
-	rootCmd.PersistentFlags().IntVar(&concurrentWorkers, "concurrent-workers", concurrentWorkers, "Number of threads to use")
+	rootCmd.PersistentFlags().IntVar(&cfg.ConcurrentWorkers, "concurrent-workers", 8, "Number of threads to use")
 	viper.BindPFlag("concurrent_workers", rootCmd.PersistentFlags().Lookup("concurrent-workers"))
 
 	// LicensesOutputDir
-	rootCmd.PersistentFlags().StringVar(&outputDir, "output-dir", outputDir, "The directory where to store licenses files")
+	rootCmd.PersistentFlags().StringVar(&cfg.LicensesOutputDir, "output-dir", "jar-files", "The directory where to store licenses files")
 	viper.BindPFlag("licenses_output_dir", rootCmd.PersistentFlags().Lookup("output-dir"))
-}
 
-func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		viper.SetConfigFile("./config.yml")
-	}
-
-	readConfig()
-
-	if verbose {
-		logger.SetLevel(logo.INFO)
-		ngfwlicenses.Logger.SetLevel(logo.INFO)
-	}
-
-	if debug {
-		logger.SetLevel(logo.DEBUG)
-		ngfwlicenses.Logger.SetLevel(logo.DEBUG)
-	}
 }
 
 //=================================================================
@@ -128,50 +115,54 @@ func runListCountryStates(cmd *cobra.Command, args []string) {
 
 // runVerify just check online the PoS status
 func runVerify(cmd *cobra.Command, args []string) {
-	posList.RefreshStatus(concurrentWorkers)
+	poxList.RefreshStatus()
 	switch verifyFormat {
 	case "json":
 		obj := struct {
-			PosList ngfwlicenses.POSList `json:"pos_list"`
-		}{PosList: posList}
+			PoLList pox.PoXList `json:"pol_list,omitempty"`
+			PoSList pox.PoXList `json:"pos_list,omitempty"`
+		}{
+			PoLList: poxList.GetAllPoL(),
+			PoSList: poxList.GetAllPoS(),
+		}
 		out, _ := json.MarshalIndent(obj, "", "  ")
 		fmt.Println(string(out))
 	case "csv":
 		w := csv.NewWriter(os.Stdout)
-		w.Write([]string{"POS", "LicenseStatus", "LicenseID", "ProductName", "SerialNumber", "MaintenanceStatus", "MaintenanceEndDate", "Company"})
-		for _, record := range posList {
-			line := []string{record.POS, string(record.Status), record.LicenseID, record.ProductName, record.SerialNumber, string(record.MaintenanceStatus), record.MaintenanceEndDate, record.Company}
+		w.Write([]string{"PoS", "PoL", "LicenseStatus", "LicenseID", "ProductName", "Binding", "Platform", "LicensePeriod", "SerialNumber", "MaintenanceStatus", "MaintenanceEndDate", "Company"})
+		for _, r := range poxList {
+			line := []string{r.PoS, r.PoL, string(r.Status), r.LicenseID, r.ProductName, r.Binding, r.Platform, r.LicensePeriod, r.SerialNumber, string(r.MaintenanceStatus), r.MaintenanceEndDate, r.Company}
 			if err := w.Write(line); err != nil {
 				log.Fatalln("error writing record to csv:", err)
 			}
 		}
 		w.Flush()
 	default:
-		posList.Display()
+		poxList.Display()
 	}
 }
 
 // runRegister
 func runRegister(cmd *cobra.Command, args []string) {
-	posList.RefreshStatus(concurrentWorkers)
-	posList.Display()
-	posList.Register(cfg.ConcurrentWorkers, cfg.ContactInfo, cfg.Reseller)
-	posList.Display()
+	poxList.RefreshStatus()
+	poxList.Display()
+	poxList.Register()
+	poxList.Display()
 }
 
 // runDownload
 func runDownload(cmd *cobra.Command, args []string) {
-	posList.RefreshStatus(concurrentWorkers)
-	posList.Display()
-	posList.Register(cfg.ConcurrentWorkers, cfg.ContactInfo, cfg.Reseller)
-	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
+	poxList.RefreshStatus()
+	poxList.Display()
+	poxList.Register()
+	poxList.Download()
 }
 
 // runDownloadOnly
 func runDownloadOnly(cmd *cobra.Command, args []string) {
-	posList.RefreshStatus(concurrentWorkers)
-	posList.Display()
-	posList.Download(cfg.ConcurrentWorkers, cfg.LicensesOutputDir)
+	poxList.RefreshStatus()
+	poxList.Display()
+	poxList.Download()
 }
 
 // runNotImplemented
@@ -180,31 +171,6 @@ func runNotImplemented(cmd *cobra.Command, args []string) {
 	logger.Fatalf("%s not yet implemented\n", cmd.Use)
 }
 */
-
-//=================================================================
-// Config
-
-func readConfig() {
-	// viper.SetConfigName("config.yml")
-	viper.SetConfigType("yaml")
-
-	viper.SetDefault("contact_info", nil)
-
-	viper.ReadInConfig()
-
-	err := viper.Unmarshal(&cfg)
-	if errlog.Debug(err) {
-		logger.Fatalf("Unable to read config file: %s\n", err)
-	}
-}
-
-type config struct {
-	ConcurrentWorkers int    `mapstructure:"concurrent_workers"`
-	LicensesOutputDir string `mapstructure:"licenses_output_dir"`
-
-	ContactInfo *ngfwlicenses.ContactInfo `mapstructure:"contact_info"`
-	Reseller    string                    `mapstructure:"resseller"`
-}
 
 //=================================================================
 // main()
