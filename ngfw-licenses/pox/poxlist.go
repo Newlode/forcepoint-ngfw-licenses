@@ -28,10 +28,6 @@ var (
 
 type PoXList []*PoX
 
-// func (poxList PoXList) do() {
-//
-// }
-
 // RefreshStatus
 func (poxList PoXList) RefreshStatus() {
 	start := time.Now()
@@ -273,17 +269,19 @@ func (poxList PoXList) Display() {
 	for _, status := range statutes.LicenseStatuses {
 		poxList := poxList.GetByStatus(status)
 		if len(poxList) > 0 {
-			fmt.Printf("\nFound %d %v %s:\n",
-				len(poxList),
-				strings.ToLower(string(status)),
-				poxList[0].poxType,
-			)
-			for _, pox := range poxList {
-				_ = pox
-				if pox.Error != "" {
-					fmt.Printf("- %v\n", pox.DetailedError())
-				} else {
-					fmt.Printf("- %v\n", pox.DetailedString())
+			for _, poxType := range []PoXType{PoL, PoS} {
+				fmt.Printf("\nFound %d %v %s:\n",
+					len(poxList.getByType(poxType)),
+					strings.ToLower(string(status)),
+					poxType,
+				)
+				for _, pox := range poxList.getByType(poxType) {
+					_ = pox
+					if pox.Error != "" {
+						fmt.Printf("- %v\n", pox.DetailedError())
+					} else {
+						fmt.Printf("- %v\n", pox.DetailedString())
+					}
 				}
 			}
 		}
@@ -340,11 +338,11 @@ func ReadPoXFormArgs(args []string, posOnly, polOnly bool) PoXList {
 		}
 	}
 
-	Logger.Infof("%d PoL and %d PoS read, %d/%d from command-line, and %d/%d from %d files",
+	Logger.Infof("%d PoL and %d PoS read, %d PoL and %d PoS from command-line, and %d PoL and %d PoS from %d files",
 		countPoLFromArgs+countPoLFromFiles, countPoSFromArgs+countPoSFromFiles,
 		countPoLFromArgs, countPoSFromArgs, countPoLFromFiles, countPoSFromFiles, countFiles)
 	if !cfg.Silent {
-		fmt.Printf("%d PoL and %d PoS read, %d/%d from command-line, and %d/%d from %d files\n",
+		fmt.Printf("%d PoL and %d PoS read, %d PoL and %d PoS from command-line, and %d PoL and %d PoS from %d files\n",
 			countPoLFromArgs+countPoLFromFiles, countPoSFromArgs+countPoSFromFiles,
 			countPoLFromArgs, countPoSFromArgs, countPoLFromFiles, countPoSFromFiles, countFiles)
 	}
@@ -357,7 +355,7 @@ func dedup(list []string) (res []string) {
 	for _, s := range list {
 		r[s] = true
 	}
-	for k, _ := range r {
+	for k := range r {
 		res = append(res, k)
 	}
 	return res

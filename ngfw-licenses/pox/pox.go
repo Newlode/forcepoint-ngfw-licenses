@@ -161,7 +161,7 @@ func (pox *PoX) RefreshStatus(showErrors bool) {
 }
 
 func (pox *PoX) refreshStatus(showErrors bool, body []byte) {
-	Logger.Infof("refreshStatus call for %s", pox.pox)
+	Logger.Infof("refreshStatus call for %s %s", pox.poxType, pox.pox)
 
 	common.Dump("dumps/"+pox.pox+"/"+time.Now().Format("20060102-150405")+"-refresh.html", body)
 	err := common.NewPagser().Parse(pox, string(body))
