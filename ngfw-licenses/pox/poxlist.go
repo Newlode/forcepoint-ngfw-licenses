@@ -270,6 +270,9 @@ func (poxList PoXList) Display() {
 		poxList := poxList.GetByStatus(status)
 		if len(poxList) > 0 {
 			for _, poxType := range []PoXType{PoL, PoS} {
+				if len(poxList.getByType(poxType)) == 0 {
+					continue
+				}
 				fmt.Printf("\nFound %d %v %s:\n",
 					len(poxList.getByType(poxType)),
 					strings.ToLower(string(status)),
