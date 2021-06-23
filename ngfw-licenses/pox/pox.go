@@ -152,7 +152,7 @@ func (pox *PoX) RefreshStatus(showErrors bool) {
 			continue
 		}
 
-		pox.Status = statutes.Valid
+		// pox.Status = statutes.Valid
 		pox.Error = ""
 		break
 	}
@@ -202,8 +202,8 @@ func (pox *PoX) Register() {
 		return
 	}
 
-	if pox.poxType == PoS && pox.Status != statutes.Valid {
-		Logger.Debugf("PoS Status has to been 'Valid', current state is %v", pox.Status)
+	if pox.poxType == PoS && pox.Status != statutes.Purchased {
+		Logger.Debugf("PoS Status has to been 'Purchased', current state is %v", pox.Status)
 		return
 	}
 

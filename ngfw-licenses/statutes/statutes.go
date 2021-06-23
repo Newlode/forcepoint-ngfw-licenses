@@ -9,8 +9,8 @@ type LicenseStatus string
 type SupportStatus string
 
 const (
-	Unknown           LicenseStatus = "UNKNOWN"
-	Valid             LicenseStatus = "VALID"
+	Unknown LicenseStatus = "UNKNOWN"
+	// Valid             LicenseStatus = "VALID"
 	Invalid           LicenseStatus = "INVALID"
 	Unregistered      LicenseStatus = "UNREGISTERED"
 	Registering       LicenseStatus = "REGISTERING"
@@ -23,7 +23,8 @@ const (
 )
 
 var (
-	LicenseStatuses = []LicenseStatus{Registered, Unregistered, Registering, Unknown, Purchased, Valid, Invalid, RegistrationError}
+	// LicenseStatuses = []LicenseStatus{Registered, Unregistered, Registering, Unknown, Purchased, Valid, Invalid, RegistrationError}
+	LicenseStatuses = []LicenseStatus{Registered, Unregistered, Registering, Unknown, Purchased, Invalid, RegistrationError}
 )
 
 func (s LicenseStatus) String() string {
@@ -31,8 +32,8 @@ func (s LicenseStatus) String() string {
 	switch s {
 	case Unknown:
 		r = aurora.Blue(string(s))
-	case Valid:
-		r = aurora.Yellow(string(s))
+	// case Valid:
+	// 	r = aurora.Yellow(string(s))
 	case Invalid:
 		r = aurora.Red(string(s))
 	case Registered:

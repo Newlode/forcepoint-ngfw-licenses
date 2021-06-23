@@ -107,8 +107,9 @@ func (poxList PoXList) Register() {
 	}
 
 	for _, pox := range poxList {
-		// We want to register only Valid PoS/PoL
-		if pox.poxType == PoS && pox.Status != statutes.Valid ||
+		// We want to register only Purchased PoS/PoL
+		Logger.Debugf("%+v", pox)
+		if pox.poxType == PoS && pox.Status != statutes.Purchased ||
 			pox.poxType == PoL && pox.Status != statutes.Purchased {
 			continue
 		}
