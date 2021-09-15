@@ -6,9 +6,10 @@
 
 ```yaml
 ---
-concurrent_workers: 12     # Optional, default: 8
-licences_output_dir: "out" # Optional, default: jar-files
-resseller: ""              # Optional, default: ""
+concurrent_workers: 12             # Optional, default: 8
+licences_output_dir: "out"         # Optional, default: jar-files
+resseller: ""                      # Optional, default: ""
+binding: "xxxxx-xxxxx-xxxxx-xxxxx" # Optional, default: ""
 
 contact_info:
   firstname: "Foo"
