@@ -195,7 +195,7 @@ func (pox *PoX) getFormData() map[string]string {
 	return res
 }
 
-// Register is in charge to register the POS using contactInfo and resseller
+// Register is in charge to register the PoS using contactInfo and resseller
 func (pox *PoX) Register() {
 	if pox.poxType == PoL && pox.Status != statutes.Purchased {
 		Logger.Debugf("PoL Status has to been 'Purchased', current state is %v", pox.Status)
@@ -213,15 +213,23 @@ func (pox *PoX) Register() {
 		Post("https://stonesoftlicenses.forcepoint.com/license/registerstonegate/save.do")
 
 	common.Dump("dumps/"+pox.pox+"/"+time.Now().Format("20060102-150405")+"-register.html", resp.Body())
-	/*
-		if errlog.Debug(err) {
-			Logger.Errorf("%s: %v", pos.POS, err)
-		}
-	*/
+}
+
+func (pox *PoX) ChangeBinding() {
+	if pox.poxType == PoS {
+		Logger.Debugf("Binding change on PoS is not supported. please open an issue if you need it.", pox.Status)
+		return
+	}
+
+	resp, _ := pox.httpClient.R().
+		SetFormData(pox.getFormData()).
+		Post("https://stonesoftlicenses.forcepoint.com/license/changeaddress/save.do")
+
+	common.Dump("dumps/"+pox.pox+"/"+time.Now().Format("20060102-150405")+"-changebinding.html", resp.Body())
 }
 
 func (pox *PoX) WaitForLicenseFileGeneration() {
-	maxEnd := time.Now().Add(time.Minute)
+	maxEnd := time.Now().Add(time.Minute * 2)
 	for {
 		pox.RefreshStatus(true)
 
@@ -231,10 +239,28 @@ func (pox *PoX) WaitForLicenseFileGeneration() {
 
 		if time.Now().After(maxEnd) {
 			pox.Status = statutes.RegistrationError
-			Logger.Errorf("%s: there was a problem when registering this POS", pox.pox)
+			Logger.Errorf("%s: there was a problem when registering this %s", pox.pox, pox.poxType)
 			break
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(15 * time.Second)
+	}
+}
+
+func (pox *PoX) WaitForBindingChange() {
+	maxEnd := time.Now().Add(time.Minute * 2)
+	for {
+		pox.RefreshStatus(true)
+
+		if pox.Binding == cfg.Binding {
+			break
+		}
+
+		if time.Now().After(maxEnd) {
+			pox.Status = statutes.RegistrationError
+			Logger.Errorf("%s: there was a problem when change-binding this %s", pox.pox, pox.poxType)
+			break
+		}
+		time.Sleep(15 * time.Second)
 	}
 }
 

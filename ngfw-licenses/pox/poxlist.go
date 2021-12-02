@@ -98,6 +98,7 @@ func (poxList PoXList) Register() {
 				done <- pox
 
 				if currentStatus != pox.Status {
+					Logger.Debugf("%s status changed from %v to %v", pox.pox, currentStatus, pox.Status)
 					count++
 					atomic.AddInt64(&counter, 1)
 				}
@@ -109,12 +110,10 @@ func (poxList PoXList) Register() {
 	for _, pox := range poxList {
 		// We want to register only Purchased PoS/PoL
 		Logger.Debugf("%+v", pox)
-		if pox.poxType == PoS && pox.Status != statutes.Purchased ||
-			pox.poxType == PoL && pox.Status != statutes.Purchased {
-			continue
+		if pox.Status == statutes.Purchased {
+			Logger.Debugf("%s state is 'Purchased', trying to register", pox.pox)
+			toDo <- pox
 		}
-
-		toDo <- pox
 	}
 	close(toDo)
 
@@ -123,9 +122,67 @@ func (poxList PoXList) Register() {
 	wgWaiter.Wait()
 
 	if !cfg.Silent {
-		fmt.Printf("%d new POS were registred\n\n", counter)
+		fmt.Printf("%d new PoS have been registred\n\n", counter)
 	}
-	Logger.Infof("%d PoS processed in %v\n", len(poxList), time.Since(start).Truncate(time.Millisecond))
+	Logger.Infof("%d PoS/PoL processed in %v\n", len(poxList), time.Since(start).Truncate(time.Millisecond))
+}
+
+// ChangeBinding
+func (poxList PoXList) ChangeBinding() {
+	if cfg.ContactInfo == nil {
+		Logger.Fatalf("Change binding require contact informations from config file")
+	}
+	start := time.Now()
+	wgWorkers := sync.WaitGroup{}
+	wgWaiter := sync.WaitGroup{}
+	toDo := make(chan *PoX)
+	done := make(chan *PoX)
+	counter := int64(0)
+
+	res := make(PoXList, 0)
+	go poxList.waitWorkDone(&wgWaiter, "Change-binding", res, done)
+
+	nbWorkers := common.Min(cfg.ConcurrentWorkers, len(poxList))
+	wgWorkers.Add(nbWorkers)
+	for i := 1; i <= nbWorkers; i++ {
+		go func(id int) {
+			count := 0
+			Logger.Debugf("Worker-%d started", id)
+			defer wgWorkers.Done()
+			for pox := range toDo {
+				initialBinding := pox.Binding
+				pox.ChangeBinding()
+				pox.WaitForBindingChange()
+				done <- pox
+
+				if initialBinding != pox.Binding {
+					Logger.Debugf("%s binding changed from %v to %v", pox.pox, initialBinding, pox.Binding)
+					count++
+					atomic.AddInt64(&counter, 1)
+				}
+			}
+			Logger.Debugf("Worker-%d done, %d PoS/PoL processed", id, count)
+		}(i)
+	}
+
+	for _, pox := range poxList {
+		// We want to register only Purchased PoS/PoL
+		Logger.Debugf("%+v", pox)
+		if pox.poxType == PoL && pox.Status == statutes.Registered && pox.Binding != cfg.Binding {
+			Logger.Debugf("%s state is 'Registered', and Binding is different (%s -> %s), trying to register", pox.pox, pox.Binding, cfg.Binding)
+			toDo <- pox
+		}
+	}
+	close(toDo)
+
+	wgWorkers.Wait()
+	close(done)
+	wgWaiter.Wait()
+
+	if !cfg.Silent {
+		fmt.Printf("%d binding have been changed\n\n", counter)
+	}
+	Logger.Infof("%d PoS/PoL processed in %v\n", len(poxList), time.Since(start).Truncate(time.Millisecond))
 }
 
 // Download
@@ -183,7 +240,7 @@ func (poxList PoXList) Download() {
 	wgWaiter.Wait()
 
 	if !cfg.Silent {
-		fmt.Printf("%d license files were downloaded in './%s/' directory\n", counter, cfg.LicensesOutputDir)
+		fmt.Printf("%d license files have been downloaded in './%s/' directory\n", counter, cfg.LicensesOutputDir)
 	}
 	Logger.Infof("%d PoS/PoL processed in %v\n", len(poxList), time.Since(start).Truncate(time.Millisecond))
 }

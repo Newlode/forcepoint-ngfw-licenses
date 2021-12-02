@@ -165,6 +165,14 @@ func runDownloadOnly(cmd *cobra.Command, args []string) {
 	poxList.Download()
 }
 
+// runChangeBinding
+func runChangeBinding(cmd *cobra.Command, args []string) {
+	poxList.RefreshStatus()
+	poxList.ChangeBinding()
+	// poxList.RefreshStatus()
+	poxList.Display()
+}
+
 // runNotImplemented
 /*
 func runNotImplemented(cmd *cobra.Command, args []string) {
@@ -198,7 +206,7 @@ func main() {
 
 	var cmdVerify = &cobra.Command{
 		Use:   "verify",
-		Short: "Verify POS status",
+		Short: "Verify PoS status",
 		Args:  cobra.ArbitraryArgs,
 		Run:   runVerify,
 	}
@@ -228,6 +236,13 @@ func main() {
 		Run:   runDownloadOnly,
 	}
 
+	var cmdChangeBinding = &cobra.Command{
+		Use:   "change-binding",
+		Short: "Change binding already registered PoS",
+		Args:  cobra.ArbitraryArgs,
+		Run:   runChangeBinding,
+	}
+
 	/*
 		var cmdInstall = &cobra.Command{
 			Use:              "install",
@@ -253,6 +268,7 @@ func main() {
 		cmdVerify,
 		cmdRegister,
 		cmdDownload, cmdDownloadOnly,
+		cmdChangeBinding,
 		//* cmdInstall, cmdInstallOnly,
 	)
 	rootCmd.Execute()

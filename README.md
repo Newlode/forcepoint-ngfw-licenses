@@ -71,7 +71,7 @@ Found 7 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
-2 new POS were registred
+2 new PoS have been registred
 
 Found 7 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
@@ -100,7 +100,7 @@ Found 7 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
-0 new POS were registred
+0 new PoS have been registred
 
 Found 7 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 1105 Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
@@ -111,7 +111,7 @@ Found 7 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
-7 license files were downloaded in './out/' directory
+7 license files have been downloaded in './out/' directory
 ```
 
 All steps can be done at once:
@@ -123,10 +123,10 @@ All steps can be done at once:
 Found 1 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"VALID", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
-1 new POS were registred
+1 new PoS have been registred
 
 Found 1 valid PoS:
 - XXXXXXXXXX-XXXXXXXXXX {LicenseStatus:"REGISTERED", SN:"N0CXXXXXXXXX", ProductName:"Forcepoint NGFW 120W Appliance", MaintenanceStatus:"Activated", MaintenanceEndDate:"2023-12-22", Company:"My Corp"}
 
-1 license files were downloaded in './out/' directory
+1 license files have been downloaded in './out/' directory
 ```
